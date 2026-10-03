@@ -12,6 +12,10 @@
 :- import_module solutions.
 :- import_module string.
 
+% Numerator and denominator; values produced below have nonzero denominators.
+% Fractions are not necessarily reduced.
+:- type rational ---> rational(int, int).
+
 :- type expression
     --->    digit(int)
     ;       add(expression, expression)
@@ -49,7 +53,7 @@ parse_digit(Text, digit(Value)) :-
 :- pred solve(list(expression)::in, expression::out) is nondet.
 
 solve([Expression], Expression) :-
-    evaluate(Expression, N, D),
+    evaluate(Expression, rational(N, D)),
     N = 10 * D.
 solve(Expressions, Answer) :-
     pick(Expressions, A, Rest),
@@ -70,22 +74,41 @@ combine(Left, Right, sub(Left, Right)).
 combine(Left, Right, mul(Left, Right)).
 combine(Left, Right, divide(Left, Right)).
 
-% Evaluate exactly as a numerator and denominator; division by zero fails.
-:- pred evaluate(expression::in, int::out, int::out) is semidet.
+% Evaluate an expression to an exact rational value; division by zero fails.
+:- pred evaluate(expression::in, rational::out) is semidet.
 
-evaluate(digit(Value), Value, 1).
-evaluate(add(Left, Right), A * D + C * B, B * D) :-
-    evaluate(Left, A, B),
-    evaluate(Right, C, D).
-evaluate(sub(Left, Right), A * D - C * B, B * D) :-
-    evaluate(Left, A, B),
-    evaluate(Right, C, D).
-evaluate(mul(Left, Right), A * C, B * D) :-
-    evaluate(Left, A, B),
-    evaluate(Right, C, D).
-evaluate(divide(Left, Right), A * D, B * C) :-
-    evaluate(Left, A, B),
-    evaluate(Right, C, D),
+evaluate(digit(Value), rational(Value, 1)).
+evaluate(add(Left, Right), rational_add(L, R)) :-
+    evaluate(Left, L),
+    evaluate(Right, R).
+evaluate(sub(Left, Right), rational_sub(L, R)) :-
+    evaluate(Left, L),
+    evaluate(Right, R).
+evaluate(mul(Left, Right), rational_mul(L, R)) :-
+    evaluate(Left, L),
+    evaluate(Right, R).
+evaluate(divide(Left, Right), Result) :-
+    evaluate(Left, L),
+    evaluate(Right, R),
+    rational_divide(L, R, Result).
+
+:- func rational_add(rational, rational) = rational.
+
+rational_add(rational(A, B), rational(C, D)) =
+    rational(A * D + C * B, B * D).
+
+:- func rational_sub(rational, rational) = rational.
+
+rational_sub(rational(A, B), rational(C, D)) =
+    rational(A * D - C * B, B * D).
+
+:- func rational_mul(rational, rational) = rational.
+
+rational_mul(rational(A, B), rational(C, D)) = rational(A * C, B * D).
+
+:- pred rational_divide(rational::in, rational::in, rational::out) is semidet.
+
+rational_divide(rational(A, B), rational(C, D), rational(A * D, B * C)) :-
     C \= 0.
 
 :- func format_expression(expression) = string.
